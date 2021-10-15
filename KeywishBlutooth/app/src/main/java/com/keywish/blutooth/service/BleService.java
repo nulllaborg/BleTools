@@ -122,6 +122,7 @@ public class BleService extends Service {
                 @Override
                 public void onCharacteristicChanged(BluetoothGatt gatt,
                                                     BluetoothGattCharacteristic characteristic) {
+                    Log.d("waldo", "onCharacteristicChanged: update character data");
                     broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic);
                 }
 
@@ -159,9 +160,11 @@ public class BleService extends Service {
         // TODO Auto-generated method stub
         List<BluetoothGattDescriptor> des = characteristic.getDescriptors();
         Intent mIntent = new Intent(ACTION_CHAR_READED);
-        if (des.size() != 0) {
-            mIntent.putExtra("desriptor1", des.get(0).getUuid().toString());
-            mIntent.putExtra("desriptor2", des.get(1).getUuid().toString());
+        int desSize = des.size();
+        Log.d(TAG, "getChartacteristicValue: desSize:" + desSize);
+        for (int i=0; i<desSize; i++) {
+            mIntent.putExtra("desriptor"+(i+1), des.get(i).getUuid().toString());
+            Log.d(TAG, "getChartacteristicValue: desriptor"+(i+1) +": " + des.get(i).getUuid().toString());
         }
         mIntent.putExtra("StringValue", characteristic.getStringValue(0));
         String hexValue = Utils.bytesToHex(characteristic.getValue());
@@ -187,7 +190,9 @@ public class BleService extends Service {
         final Intent intent = new Intent();
         intent.setAction(action);
         final byte[] data = characteristic.getValue();
+        Log.d("waldo", "broadcastUpdate: data:" + data);
         final String stringData = characteristic.getStringValue(0);
+        Log.d("waldo", "broadcastUpdate: stringData:" + stringData);
         if (data != null && data.length > 0) {
             final StringBuilder stringBuilder = new StringBuilder(data.length);
             for (byte byteChar : data) {
@@ -196,7 +201,7 @@ public class BleService extends Service {
             if (stringData != null) {
                 intent.putExtra(EXTRA_STRING_DATA, stringData);
             } else {
-                Log.v("tag", "characteristic.getStringValue is null");
+                Log.v("waldo", "characteristic.getStringValue is null");
             }
             notify_result = stringBuilder.toString();
             notify_string_result = stringData;
