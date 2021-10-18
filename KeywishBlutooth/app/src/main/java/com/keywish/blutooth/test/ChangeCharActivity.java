@@ -9,6 +9,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
 import android.content.BroadcastReceiver;
@@ -25,6 +26,7 @@ import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.View;
@@ -88,11 +90,15 @@ public class ChangeCharActivity extends AppCompatActivity implements OnClickList
         public void onServiceConnected(ComponentName arg0, IBinder service) {
             // TODO Auto-generated method stub
             bleService = ((BleService.LocalBinder) service).getService();
+//            Log.d("waldo", "onServiceConnected: seruuid:" + serUuid);
+//            Log.d("waldo", "onServiceConnected: charuuid:" + charUuid);
             gattChar = bleService.mBluetoothGatt.getService(serUuid)
                     .getCharacteristic(charUuid);
             bleService.mBluetoothGatt.readCharacteristic(gattChar);
+            Log.d("waldo", "onServiceConnected: gattChar des size:" + gattChar.getDescriptors().size());
             if (gattChar.getDescriptors().size() != 0) {
                 BluetoothGattDescriptor des = gattChar.getDescriptors().get(0);
+//                Log.d("waldo", "onServiceConnected: gattChar des uuid:" + des.getUuid());
                 des.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                 bleService.mBluetoothGatt.writeDescriptor(des);
             }
@@ -129,6 +135,7 @@ public class ChangeCharActivity extends AppCompatActivity implements OnClickList
         public void onReceive(Context arg0, Intent intent) {
             // TODO Auto-generated method stub
             String action = intent.getAction();
+
             if (BleService.ACTION_GATT_RSSI.equals(action)) {
                 rssi = intent.getExtras().getInt(BleService.EXTRA_DATA_RSSI);
                 ChangeCharActivity.this.invalidateOptionsMenu();
@@ -666,6 +673,31 @@ public class ChangeCharActivity extends AppCompatActivity implements OnClickList
         }
     }
 
+    protected final boolean enableNotifications(BluetoothGatt gatt , final BluetoothGattCharacteristic characteristic, boolean enable) {
+        if (gatt == null || characteristic == null)
+            return false;
+
+        // Check characteristic property
+        final int properties = characteristic.getProperties();
+        if ((properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) == 0)
+            return false;
+
+        Log.d("BLE", "gatt.setCharacteristicNotification(" + characteristic.getUuid() + ", " + enable + ")");
+        gatt.setCharacteristicNotification(characteristic, enable);
+        final BluetoothGattDescriptor descriptor = characteristic.getDescriptors().get(0);
+        if (descriptor != null) {
+            if (enable)
+                descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+            else
+                descriptor.setValue((BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE));
+
+            Log.v("BLE", "Enabling notifications for " + characteristic.getUuid() + " enable:" + enable);
+            Log.d("BLE", "gatt.writeDescriptor(" + characteristic.getDescriptors().get(0).getUuid() + ", value=0x01-00)");
+            return gatt.writeDescriptor(descriptor);
+        }
+        return false;
+    }
+
     @SuppressLint("NewApi")
     @Override
     public void onClick(View view) {
@@ -679,13 +711,11 @@ public class ChangeCharActivity extends AppCompatActivity implements OnClickList
                 break;
             case R.id.btn_notify:
                 if (!startNotify) {
-                    bleService.mBluetoothGatt.setCharacteristicNotification(
-                            gattChar, true);
+                    enableNotifications(bleService.mBluetoothGatt, gattChar, true);
                     startNotify = true;
                     notifyButton.setText(getText(R.string.stop_notice));
                 } else {
-                    bleService.mBluetoothGatt.setCharacteristicNotification(
-                            gattChar, false);
+                    enableNotifications(bleService.mBluetoothGatt, gattChar, false);
                     startNotify = false;
                     notifyButton.setText(getText(R.string.start_notice));
                 }
